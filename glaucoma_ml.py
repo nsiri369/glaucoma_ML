@@ -1,81 +1,85 @@
 import streamlit as st
 import pandas as pd
 import pickle
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
 
-# Set page title
-st.title("Glaucoma Prediction App")
+st.title("Glaucoma Type Prediction App")
 
-# Load the trained model (ensure 'logreg_model.pkl' exists in the same directory)
+# Load the trained logistic regression model
 try:
     with open('logreg_model.pkl', 'rb') as file:
-        model = pickle.load(file)
+        logreg = pickle.load(file)
 except FileNotFoundError:
     st.error("Model file 'logreg_model.pkl' not found. Please ensure it is in the same directory.")
     st.stop()
 
-# Define the label encoder for decoding predictions (adjust based on your training notebook)
-label_encoder = LabelEncoder()
-label_encoder.classes_ = np.array(['No Glaucoma', 'Glaucoma'])  # Update if your model uses different labels
-
-# Sidebar for user inputs
 st.sidebar.header("Enter Patient Details")
 
-# Example numeric features (replace with your dataset’s features)
-age = st.sidebar.slider("Age", min_value=20, max_value=90, value=50)
-iop = st.sidebar.slider("Intraocular Pressure (mmHg)", min_value=5.0, max_value=40.0, value=15.0, step=0.1)
-cup_disc_ratio = st.sidebar.slider("Cup-to-Disc Ratio", min_value=0.1, max_value=1.0, value=0.5, step=0.01)
-visual_field_index = st.sidebar.slider("Visual Field Index (%)", min_value=0, max_value=100, value=85)
+# Collect numerical inputs (scaled in notebook)
+age = st.sidebar.slider("Age", 20, 90, 50)
+iop = st.sidebar.slider("Intraocular Pressure (IOP)", 5.0, 40.0, 15.0, step=0.1)
+cdr = st.sidebar.slider("Cup-to-Disc Ratio (CDR)", 0.1, 1.0, 0.5, step=0.01)
+pachy = st.sidebar.slider("Pachymetry", 300.0, 700.0, 520.0, step=1.0)
 
-# Example categorical features (replace with actual features from your dataset)
-gender = st.sidebar.selectbox("Gender", options=["Male", "Female"])
-family_history = st.sidebar.selectbox("Family History of Glaucoma", options=["Yes", "No"])
+# Categorical features (the ones you encoded in notebook)
+gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
+visual_acuity = st.sidebar.selectbox("Visual Acuity Measurements", ["Normal", "Reduced"])
+family_history = st.sidebar.selectbox("Family History", ["Yes", "No"])
+medical_history = st.sidebar.selectbox("Medical History", ["None", "Diabetes", "Hypertension"])
+cataract_status = st.sidebar.selectbox("Cataract Status", ["Yes", "No"])
+angle_closure_status = st.sidebar.selectbox("Angle Closure Status", ["Open", "Closed"])
+diagnosis = st.sidebar.selectbox("Diagnosis", ["Suspect", "Confirmed"])
 
-# Function to preprocess input data
-def preprocess_input(age, iop, cup_disc_ratio, visual_field_index, gender, family_history):
+# Preprocess input to match your one-hot encoded dataframe
+def preprocess_input():
     data = {
         'Age': age,
-        'IOP': iop,
-        'CupDiscRatio': cup_disc_ratio,
-        'VisualFieldIndex': visual_field_index,
-        'Gender_Male': 1 if gender == 'Male' else 0,
-        'Gender_Female': 1 if gender == 'Female' else 0,
-        'FamilyHistory_Yes': 1 if family_history == 'Yes' else 0,
-        'FamilyHistory_No': 1 if family_history == 'No' else 0
+        'Intraocular Pressure (IOP)': iop,
+        'Cup-to-Disc Ratio (CDR)': cdr,
+        'Pachymetry': pachy
     }
     df = pd.DataFrame([data])
 
-    # Ensure columns order matches training data
-    expected_columns = [
-        'Age', 'IOP', 'CupDiscRatio', 'VisualFieldIndex',
-        'Gender_Female', 'Gender_Male', 'FamilyHistory_No', 'FamilyHistory_Yes'
-    ]
+    # one-hot encode exactly like in notebook
+    df['Gender_Female'] = 1 if gender == "Female" else 0
+    df['Gender_Male'] = 1 if gender == "Male" else 0
+
+    df['Visual Acuity Measurements_Normal'] = 1 if visual_acuity == "Normal" else 0
+    df['Visual Acuity Measurements_Reduced'] = 1 if visual_acuity == "Reduced" else 0
+
+    df['Family History_Yes'] = 1 if family_history == "Yes" else 0
+    df['Family History_No'] = 1 if family_history == "No" else 0
+
+    df['Medical History_None'] = 1 if medical_history == "None" else 0
+    df['Medical History_Diabetes'] = 1 if medical_history == "Diabetes" else 0
+    df['Medical History_Hypertension'] = 1 if medical_history == "Hypertension" else 0
+
+    df['Cataract Status_Yes'] = 1 if cataract_status == "Yes" else 0
+    df['Cataract Status_No'] = 1 if cataract_status == "No" else 0
+
+    df['Angle Closure Status_Open'] = 1 if angle_closure_status == "Open" else 0
+    df['Angle Closure Status_Closed'] = 1 if angle_closure_status == "Closed" else 0
+
+    df['Diagnosis_Suspect'] = 1 if diagnosis == "Suspect" else 0
+    df['Diagnosis_Confirmed'] = 1 if diagnosis == "Confirmed" else 0
+
+    # Make sure columns order matches training data
+    expected_columns = logreg.feature_names_in_  # sklearn 1.0+ stores this automatically
     df = df.reindex(columns=expected_columns, fill_value=0)
     return df
 
-# Button to make prediction
 if st.sidebar.button("Predict"):
-    input_df = preprocess_input(age, iop, cup_disc_ratio, visual_field_index, gender, family_history)
+    input_df = preprocess_input()
     try:
-        prediction = model.predict(input_df)
-        predicted_label = label_encoder.inverse_transform(prediction)[0]
-
-        # Display result
+        prediction = logreg.predict(input_df)
+        predicted_label = prediction[0]  # direct string from your y
         st.subheader("Prediction Result")
-        st.write(f"The predicted outcome is: **{predicted_label}**")
-        if predicted_label == "No Glaucoma":
-            st.write("The patient is not predicted to have glaucoma.")
-        else:
-            st.write("The patient may have glaucoma.")
+        st.write(f"The predicted glaucoma type is: **{predicted_label}**")
     except Exception as e:
         st.error(f"Error making prediction: {str(e)}")
 
-# Display instructions
 st.write("""
 ### Instructions
 1. Use the sidebar to enter the patient's details.
-2. Adjust the sliders for numerical features like Age, IOP, etc.
-3. Select appropriate options for categorical fields.
-4. Click the 'Predict' button to see the predicted outcome.
+2. Adjust sliders for numeric values and choose from dropdowns for categories.
+3. Click 'Predict' to see the predicted glaucoma type.
 """)
