@@ -7,7 +7,7 @@ import os
 
 # --- Configuration ---
 # The model file MUST be committed to your GitHub repo.
-model_filename = 'glaucoma_clf_model.pkl'
+model_filename = 'logreg_model.pkl'
 
 # Construct a robust path to the model file
 base_path = os.path.dirname(__file__)
@@ -21,7 +21,7 @@ st.markdown("### Predicting Glaucoma Risk based on Patient Metrics")
 # --- Load Compressed Model using Joblib ---
 if not os.path.exists(model_path):
     st.error(f"🚨 **FATAL ERROR:** The model file '{model_filename}' was not found.")
-    st.markdown("Please ensure the **`glaucoma_clf_model.pkl`** file is committed to your repository.")
+    st.markdown("Please ensure the **`logreg_model.pkl`** file is committed to your repository.")
     st.stop()
 
 try:
@@ -128,3 +128,4 @@ This prediction is based on the most influential features identified during mode
 4.  **Cup-to-Disc Ratio (CDR)**
 5.  **Visual Field Test (VFT) Metrics** (Sensitivity and Specificity)
 """)
+
